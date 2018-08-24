@@ -1,0 +1,1 @@
+const easyflow = require('../index.js')

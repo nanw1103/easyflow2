@@ -1,2 +1,2 @@
 # easyflow2
-Simple workflow engine with context mapping and persistence
+Simple workflow engine with context mapping and persistence (WIP)

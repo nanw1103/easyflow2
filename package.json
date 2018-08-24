@@ -1,0 +1,25 @@
+{
+  "name": "easyflow2",
+  "version": "0.0.4",
+  "description": "Simple workflow engine with context mapping and persistence",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nanw1103/easyflow2.git"
+  },
+  "keywords": [
+    "workflow"
+  ],
+  "author": "https://github.com/nanw1103",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/nanw1103/easyflow2/issues"
+  },
+  "homepage": "https://github.com/nanw1103/easyflow2#readme"
+}
