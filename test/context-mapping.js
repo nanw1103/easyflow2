@@ -26,8 +26,7 @@ describe('context mapping', function() {
 	name = 'function - write returned value back to context'
 	it(name, async () => {
 		let conf = {}
-		function f1(anObj) {
-			assert(anObj === undefined)
+		function f1() {
 			return {
 				anObj: 'something'
 			}
@@ -45,10 +44,9 @@ describe('context mapping', function() {
 	name = 'flow - context in'
 	it(name, async () => {
 		let conf = {obj1: '1', obj2: '2', obj3: '3'}
-		function f1(obj1, obj2, obj3) {
+		function f1(obj1, obj2) {
 			assert(obj1 === conf.obj1)
 			assert(obj2 === conf.obj2)
-			assert(obj3 === undefined)
 		}
 		
 		return easyflow(name,
@@ -59,10 +57,8 @@ describe('context mapping', function() {
 	name = 'flow - context in, renamed'
 	it(name, async () => {
 		let conf = {obj1: '1', obj2: '2', obj3: '3'}
-		function f1(obj1, newK, obj2) {
-			assert(obj1 === undefined)
+		function f1(newK) {
 			assert(newK === conf.obj1)
-			assert(obj2 === undefined)
 		}
 		
 		return easyflow(name,
