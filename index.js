@@ -60,6 +60,10 @@ class TaskBase {
 		this.executionId = runtime.executionId++
 		if (this.skip)
 			return true
+		if (this._isCanceled()) {
+			this.error = 'canceled'
+			return Promise.reject('canceled')
+		}
 		
 		this._updateState('running')
 		
@@ -80,6 +84,13 @@ class TaskBase {
 			console.error(state)
 		else
 			this.flow.emitter.emit(state, this)
+	}
+	
+	_isCanceled() {
+		if (this.flow.canceled)
+			return true
+		if (this.parent)
+			return this.parent._isCanceled()
 	}
 }
 
@@ -257,6 +268,14 @@ class Easyflow {
 	on(event, handler) {
 		this.emitter.on(event, handler)
 		return this
+	}
+	
+	cancel() {
+		this.canceled = true
+	}
+	
+	status() {
+		return this.task
 	}
 }
 

@@ -1,6 +1,6 @@
 {
   "name": "easyflow2",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Simple workflow engine with context mapping and persistence",
   "main": "index.js",
   "directories": {
