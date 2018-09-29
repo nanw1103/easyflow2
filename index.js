@@ -59,10 +59,10 @@ class TaskBase {
 
 		this.executionId = runtime.executionId++
 		if (this.skip)
-			return true
+			return context
 		if (this._isCanceled()) {
 			this.error = 'canceled'
-			return Promise.reject('canceled')
+			return Promise.reject(this)
 		}
 		
 		this._updateState('running')
@@ -70,11 +70,23 @@ class TaskBase {
 		try {
 			await this._runImpl(context, runtime)
 		} catch (e) {
+			//Let the flow eventually reject a specific step, so as to get full context of the error.
+			//Hence if we catch an error, then it's something wrong with "this step". Store it in this
+			//step and reject this step. If we catch a TaskBase object, it's an already handled error
+			//and we just mark error on this step and reject out
+			let err
+			if (e instanceof TaskBase) {
+				err = e
+			} else {
+				this.error = e
+				err = this
+			}			
 			this._updateState('error')
-			return Promise.reject(e)
+			return Promise.reject(err)
 		}
 		
 		this._updateState('complete')
+		return context
 	}
 	
 	_updateState(state) {
@@ -208,12 +220,7 @@ class FuncTask extends TaskBase {
 			skip: (...ids) => this.flow.skip(ids)
 		}
 		
-		try {
-			this.result = await this.func.apply(_task_this, params)
-		} catch (e) {
-			this.error = e
-			return Promise.reject(this)
-		}
+		this.result = await this.func.apply(_task_this, params)		//let it throw out, if any exception
 		Object.assign(parentContext, this.result)
 	}
 }
