@@ -17,8 +17,8 @@ function getArgs(func) {
 }
 
 class TaskBase {
-	constructor(flow) {
-		
+
+	constructor(flow) {		
 		Object.defineProperty(this, 'flow', {value: flow})
 		//status: 'running|error|complete'
 		//message: '',
@@ -57,12 +57,30 @@ class TaskBase {
 		
 		this.reset(false)
 
+		let _markError = e => {
+			if (typeof e !== 'object') {
+				e = { error: e }
+			}
+			let name = 'easyflow[' + this.id() + ']'
+			if (e.name && !e.name.startsWith('easyflow[')) {
+				e.name = name + ' ' + e.name
+				this.error = e
+				Object.defineProperty(e, 'easyflowContext', {
+					value: context
+				})
+			} else {
+				e.name = name				
+			}
+			this._updateState('error')
+		}
+
 		this.executionId = runtime.executionId++
 		if (this.skip)
 			return context
 		if (this._isCanceled()) {
-			this.error = 'canceled'
-			return Promise.reject(this)
+			let e = new Error('canceled')
+			_markError(e)
+			throw e
 		}
 		
 		this._updateState('running')
@@ -70,23 +88,14 @@ class TaskBase {
 		try {
 			await this._runImpl(context, runtime)
 		} catch (e) {
-			//Let the flow eventually reject a specific step, so as to get full context of the error.
-			//Hence if we catch an error, then it's something wrong with "this step". Store it in this
-			//step and reject this step. If we catch a TaskBase object, it's an already handled error
-			//and we just mark error on this step and reject out
-			let err
-			if (e instanceof TaskBase) {
-				err = e
-			} else {
-				this.error = e
-				err = this
-			}			
-			this._updateState('error')
-			return Promise.reject(err)
+			_markError(e)
+			throw e
 		}
 		
 		this._updateState('complete')
 		return context
+
+		
 	}
 	
 	_updateState(state) {
