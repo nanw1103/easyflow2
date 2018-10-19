@@ -16,6 +16,13 @@ function getArgs(func) {
 		.filter(arg => arg)	// Ensure no undefined values are added.
 }
 
+function reportEventsToParent(child, parent) {
+	child.on('running', m => parent.emitter.emit('running', m))
+	child.on('message', m => parent.emitter.emit('message', m))
+	child.on('complete', m => parent.emitter.emit('complete', m))
+	child.on('error', m => parent.emitter.emit('error', m))
+}
+
 class TaskBase {
 
 	constructor(flow) {		
@@ -58,20 +65,24 @@ class TaskBase {
 		this.reset(false)
 
 		let _markError = e => {
-			if (typeof e !== 'object') {
+			if (typeof e !== 'object')
 				e = { error: e }
-			}
+			
 			let name = 'easyflow[' + this.id() + ']'
-			if (e.name && !e.name.startsWith('easyflow[')) {
-				e.name = name + ' ' + e.name
-				this.error = e
+			if (e.name && e.name.indexOf('easyflow[') < 0) {
+				e.name = e.name + ' ' + name
+			} else
+				e.name = name
+
+			if (!e.easyflowContext) {
 				Object.defineProperty(e, 'easyflowContext', {
 					value: context
 				})
-			} else {
-				e.name = name				
 			}
+
+			this.error = e			
 			this._updateState('error')
+			return e
 		}
 
 		this.executionId = runtime.executionId++
@@ -79,7 +90,7 @@ class TaskBase {
 			return context
 		if (this._isCanceled()) {
 			let e = new Error('canceled')
-			_markError(e)
+			e = _markError(e)
 			throw e
 		}
 		
@@ -88,14 +99,12 @@ class TaskBase {
 		try {
 			await this._runImpl(context, runtime)
 		} catch (e) {
-			_markError(e)
-			throw e
+			let err = _markError(e)
+			throw err
 		}
 		
 		this._updateState('complete')
 		return context
-
-		
 	}
 	
 	_updateState(state) {
@@ -126,11 +135,7 @@ class FlowTask extends TaskBase {
 			let sub
 			if (t instanceof Easyflow) {
 				sub = t.task
-				
-				t.on('running', t => flow.emitter.emit('running', t))
-				t.on('message', t => flow.emitter.emit('message', t))
-				t.on('complete', t => flow.emitter.emit('complete', t))
-				t.on('error', t => flow.emitter.emit('error', t))
+				reportEventsToParent(t, flow)				
 			} else if (typeof t === 'function') {
 				sub = new FuncTask(flow, t)
 			} else {
@@ -247,8 +252,28 @@ class Easyflow {
 		this.task = new FlowTask(this, items)
 	}
 
-	run(context, runtime) {		
-		return this.task.run(context, runtime)
+	async run(context, runtime) {
+		try {
+			return await this.task.run(context, runtime)
+		} catch (e) {
+			let errorFlow = this.errorFlow
+			if (errorFlow) {
+				context = context || {}
+				context._error = e
+				try {
+					if (typeof errorFlow === 'function') {
+						await errorFlow(context, e)
+					} else {
+						reportEventsToParent(errorFlow, this)
+						await errorFlow.run(context)
+					}
+				} catch (e) {
+					this.emitter.emit('error', e)
+					console.error(`Fail running error flow of easyflow ${this.id()}`, e)
+				}
+			}
+			throw e
+		}
 	}
 
 	skip(ids) {
@@ -278,6 +303,13 @@ class Easyflow {
 		this.mapping_out = {}
 		for (let k of mapping)
 			this.mapping_out[k] = k
+		return this
+	}
+	
+	error(flow) {
+		if (typeof flow !== 'function' && !(flow instanceof Easyflow))
+			throw 'Invalid argument type. Expect function or instanceof Easyflow'
+		this.errorFlow = flow
 		return this
 	}
 	
