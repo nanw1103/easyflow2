@@ -125,9 +125,10 @@ class TaskBase {
 }
 
 class FlowTask extends TaskBase {
-	constructor(flow, items) {
+	constructor(flow, items, parallel) {
 		super(flow)
 		this.title = flow.options.title
+		this.parallel = parallel
 		
 		this.children = []
 		for (let i = 0; i < items.length; i++) {
@@ -179,8 +180,13 @@ class FlowTask extends TaskBase {
 		Object.defineProperty(actualContext, '_parent', { value: parentContext })
 		
 		//run it
-		for (let t of this.children)
-			await t.run(actualContext, runtime)
+		if (this.parallel) {
+			let tasks = this.children.map(t => t.run(actualContext, runtime))
+			await Promise.all(tasks)
+		} else {
+			for (let t of this.children)
+				await t.run(actualContext, runtime)
+		}
 		
 		//write back to parent context
 		let mapping_out = this.flow.mapping_out
@@ -241,7 +247,7 @@ class FuncTask extends TaskBase {
 
 class Easyflow {
 
-	constructor(options, items) {
+	constructor(options, items, parallel) {
 		
 		this.emitter = new EventEmitter
 		
@@ -249,7 +255,7 @@ class Easyflow {
 			options = {title: options}
 		this.options = options
 		
-		this.task = new FlowTask(this, items)
+		this.task = new FlowTask(this, items, parallel)
 	}
 
 	async run(context, runtime) {
@@ -329,6 +335,10 @@ class Easyflow {
 
 function easyflow(option, ...tasks) {
     return new Easyflow(option, tasks)
+}
+
+easyflow.parallel = function(option, ...tasks) {
+    return new Easyflow(option, tasks, true)
 }
 
 module.exports = easyflow
