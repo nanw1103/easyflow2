@@ -64,7 +64,7 @@ class TaskBase {
 		
 		this.reset(false)
 
-		let _markError = e => {
+		let _markError = async e => {
 			if (typeof e !== 'object')
 				e = { error: e }
 			
@@ -78,10 +78,27 @@ class TaskBase {
 				Object.defineProperty(e, 'easyflowContext', {
 					value: context
 				})
+				this.error = e
 			}
-
-			this.error = e			
+			
 			this._updateState('error')
+			
+			let errorFlow = this.errorFlow
+			if (errorFlow) {
+				context = context || {}
+				context._error = e
+				try {
+					if (typeof errorFlow === 'function') {
+						await errorFlow(context, e)
+					} else {
+						reportEventsToParent(errorFlow, this)
+						await errorFlow.run(context)
+					}
+				} catch (e) {
+					this.emitter.emit('error', e)
+					console.error(`Fail running error flow of easyflow ${this.id()}`, e)
+				}
+			}
 			return e
 		}
 
@@ -90,7 +107,7 @@ class TaskBase {
 			return context
 		if (this._isCanceled()) {
 			let e = new Error('canceled')
-			e = _markError(e)
+			e = await _markError(e)
 			throw e
 		}
 		
@@ -99,7 +116,7 @@ class TaskBase {
 		try {
 			await this._runImpl(context, runtime)
 		} catch (e) {
-			let err = _markError(e)
+			let err = await _markError(e)
 			throw err
 		}
 		
@@ -259,26 +276,17 @@ class Easyflow {
 	}
 
 	async run(context, runtime) {
+		let startTime
+		if (logTime)
+			startTime = Date.now()
+
 		try {
 			return await this.task.run(context, runtime)
-		} catch (e) {
-			let errorFlow = this.errorFlow
-			if (errorFlow) {
-				context = context || {}
-				context._error = e
-				try {
-					if (typeof errorFlow === 'function') {
-						await errorFlow(context, e)
-					} else {
-						reportEventsToParent(errorFlow, this)
-						await errorFlow.run(context)
-					}
-				} catch (e) {
-					this.emitter.emit('error', e)
-					console.error(`Fail running error flow of easyflow ${this.id()}`, e)
-				}
+		} finally {
+			if (logTime) {
+				let cost = Date.now() - startTime
+				console.log(`Flow ${this.options.title} cost=${cost}ms`)
 			}
-			throw e
 		}
 	}
 
@@ -334,11 +342,16 @@ class Easyflow {
 }
 
 function easyflow(option, ...tasks) {
-    return new Easyflow(option, tasks)
+	return new Easyflow(option, tasks)
 }
 
 easyflow.parallel = function(option, ...tasks) {
-    return new Easyflow(option, tasks, true)
+	return new Easyflow(option, tasks, true)
+}
+
+let logTime
+easyflow.logTime = function(b) {
+	return logTime = b
 }
 
 module.exports = easyflow

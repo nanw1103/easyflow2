@@ -2,6 +2,10 @@
 class AsyncFlag {
 	constructor(name) {
 		this.name = name
+		this.reset()		
+	}
+	
+	reset() {
 		this.promise = new Promise((resolve, reject) => {
 			this._resolve = resolve
 			this._reject = reject
