@@ -91,11 +91,11 @@ class TaskBase {
 					if (typeof errorFlow === 'function') {
 						await errorFlow(context, e)
 					} else {
-						reportEventsToParent(errorFlow, this)
+						reportEventsToParent(errorFlow, this.flow)
 						await errorFlow.run(context)
 					}
 				} catch (e) {
-					this.emitter.emit('error', e)
+					this.flow.emitter.emit('error', e)
 					console.error(`Fail running error flow of easyflow ${this.id()}`, e)
 				}
 			}
@@ -323,7 +323,7 @@ class Easyflow {
 	error(flow) {
 		if (typeof flow !== 'function' && !(flow instanceof Easyflow))
 			throw 'Invalid argument type. Expect function or instanceof Easyflow'
-		this.errorFlow = flow
+		this.task.errorFlow = flow
 		return this
 	}
 	
