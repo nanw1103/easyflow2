@@ -4,7 +4,7 @@ const util = require('util')
 
 function getArgs(func) {
 	// First match everything inside the function argument parens.
-	let matcher = func.toString().match(/function\s.*?\(([^)]*)\)/)
+	let matcher = func.toString().match(/function\s?.*?\(([^)]*?)\)/)
 	if (!matcher)
 		return []
 	
